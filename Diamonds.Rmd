@@ -1,0 +1,195 @@
+---
+title: "Exploratory Data Analysis of Dimonds data set"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In this report I'm going to work with the data set, comtaining the prices and other attributes of almost 54,000 diamonds. The data set comes with ggplot2 library.
+
+```{r first data exploration}
+library(ggplot2)
+dim(diamonds)
+str(diamonds)
+```
+  
+Notes:  
+* There are 53940 observations in the data set, 10 variables, 3 ordered factors.  
+* According to http://www.lumeradiamonds.com/, the less body color in a white diamond, the more true color it will reflect, and thus the greater its value - D.    
+
+## Diamonds price histogram
+
+The diamond price histogram from the diamonds data set
+
+```{r pressure}
+qplot(data = diamonds, x = price, binwidth = 250,
+      color = I('black'), fill = I('#F79420'),
+      xlab = "Diamonds' price in $",
+      ylab = "Count of diamonds") + 
+  scale_x_continuous(breaks = seq(0,20000, 2000))
+```
+  
+Notes:  
+* The diamond price distribution is positively skewed, has a peak (mode) around 800$ and long right tail.  
+* The median of the distribution is shifted to the left and equal to 1838$. Mean is 3170$.  
+* Min diamond price is 357$ and max is 18690$.  
+
+##Diamonds price explorations
+```{r}
+#How many diamonds cost less than $500?
+NROW(subset(diamonds,price<500))
+#How many diamonds cost less than $250?
+NROW(subset(diamonds,price<250))
+#How many diamonds cost $15000 and more?
+NROW(subset(diamonds,price>=15000))
+```
+##Exploring the largest peak in the price histogram
+```{r}
+library(gridExtra)
+q <- qplot(data = diamonds, x = price, binwidth = 1,
+      color = I('black'), fill = I('#F79420'),
+      xlab = "Diamonds' price in $",
+      ylab = "Count") 
+q2 <- q + scale_x_continuous(breaks = seq(0,3000, 100), limits = c(350,2000))
+ggsave('priceHistogram1.png')
+q3 <- q + scale_x_continuous(breaks = seq(0,3000, 50), limits = c(575,825))
+ggsave('priceHistogram2.png')
+#exploring the price range with no diamonds
+q4 <- q + scale_x_continuous(breaks = seq(0,3000, 50), limits = c(1400,1600))
+ggsave('priceHistogram3.png')
+suppressWarnings(grid.arrange(q2,q3,q4,ncol=1))
+ggsave('priceHistogram.png')
+```
+
+Notes:  
+* The largest peak of diamonds' price distribution is in the range from 500$ to 850$.  
+* Most  of the diamonds have the price a bit more than 600$. To be clarified further.  
+* There is a price range between 1450$ and 1550$ when we don't have any diamond.  
+
+Top 3 diamonds' prices:  
+```{r}
+head(sort(table(diamonds$price), decreasing = T),n = 3)
+```
+1.  132 diamonds with the price 605$  
+2.  127 diamonds for 802$  
+3.  126 diamonds for 625$  
+
+Exploring the price range without diamonds
+```{r}
+table(subset(diamonds$price, diamonds$price > 1450 & diamonds$price < 1550))
+```
+There are no diamonds in price range from 1455$ till 1545$
+
+##The histogram of diamond prices broken up by cut
+```{r}
+q + facet_wrap(~cut, scales = "free_y")
+
+```
+##The histogram of price per carat and by cut facet
+```{r}
+qplot(data = diamonds, x = price/carat, binwidth = 0.025,
+      xlab = "Price per carat, $",
+      ylab = "Counts") +
+  facet_wrap(~cut, scales = "free_y") +
+  scale_x_log10()
+
+```
+
+Notes:  
+* there are still the diamonds with the not-ideal cut and huge price  
+* there not many "cheap" diamonds with fair cut, but better is cut, more "cheap" diamonds
+
+```{r}
+by(diamonds$price,diamonds$cut,summary,digits = max(getOption('digits')))
+```
+
+Notes:  
+* The lowest price have diamonds with Premium and Ideal cuts  
+* The highest price have diamonds with Premium cut
+* The lowest median price have diamonds with Ideal cut (surprise)  
+
+##Boxplot by clarity, color and cut
+Visualizing the box plots, I would like to understand how the price per carat depends from the clarity, color and cut. I expect to see that better clarity (IF - good vs. I1 - bad), better color (D - good vs. J - bad) and better cut causes higher price median.
+```{r}
+b1 <- qplot(data = diamonds, x = clarity, y = price/carat,
+      xlab = 'Clarity',
+      ylab = 'Price',
+      geom = 'boxplot',
+      fill=clarity) +
+  coord_cartesian(ylim=c(350,18700))
+ggsave("boxplot-price-clarity.png")
+b2 <- qplot(data = diamonds, x = color, y = price/carat,
+      xlab = 'Color',
+      ylab = 'Price',
+      geom = 'boxplot',
+      fill=color) +
+  coord_cartesian(ylim=c(350,18700))
+ggsave("boxplot-price-color.png")
+b3 <- qplot(data = diamonds, x = cut, y = price/carat,
+      xlab = 'Cut',
+      ylab = 'Price',
+      geom = 'boxplot',
+      fill=cut) +
+  coord_cartesian(ylim=c(350,18700))
+b1
+b2
+b3
+ggsave("boxplot-price-cut.png")
+```
+
+Against expectations, looking on price - clarity boxplot, median price for the one of the worst clarity level SI2 is higher than IF clarity. At the same time, I can see that the most expensive diamonds with price per carat higher than 15000$ has just IF - best - clarity level and the maximum price - clarity has relatively high linear correlation.  
+
+Let's add color on the same plot and we can see something interesting:
+```{r}
+qplot(data = diamonds, x = clarity, y = price/carat,
+      xlab = 'Clarity',
+      ylab = 'Price',
+      geom = 'boxplot',
+      fill=color) +
+  coord_cartesian(ylim=c(350,18700))
+ggsave("boxplot-price-clarity-color.png")
+```
+
+The diamonds with the best color and clarity have the highest price per carat.
+Let's check how the plot will change if we add cut instead of color:
+```{r}
+qplot(data = diamonds, x = clarity, y = price/carat,
+      xlab = 'Clarity',
+      ylab = 'Price',
+      geom = 'boxplot',
+      fill=cut)
+ggsave("boxplot-price-clarity-cut.png")
+```
+The picture is not so obvious for best clarity and color but there is a linear regression of price clarity - cut
+
+##Measures of central tendency
+```{r}
+by(diamonds$price,diamonds$color,summary,digits = max(getOption('digits')))
+```
+
+* The price range for the middle 50% of diamonds with color D:  
+  * first quartile (25%): 911$  
+  * third quartile (75%): 4213.5$  
+* The price range for the middle 50% of diamonds with color J:  
+  * first quartile (25%): 1860.5$    
+  * third quartile (75%): 7695$  
+* IQR for diamonds with the best color: 3302.50  
+* IQR for diamonds with the worst color: 5834.50    
+
+##Diamond's size exploration
+Carat Frequency Polygon
+```{r}
+qplot(data = diamonds, x = carat, y = ..count.., 
+      binwidth = 0.01,
+      geom = "freqpoly") +
+  scale_x_continuous(limits = c(0, 2.2), breaks = seq(0, 2.2, 0.1))
+
+```
+
+Most of the diamonds have the size 0.3 carat
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
